@@ -57,14 +57,19 @@ where
     CS: embedded_hal::digital::v2::OutputPin,
     <SPI as embedded_hal::blocking::spi::Transfer<u8>>::Error: core::fmt::Debug,
 {
-    /// Create a new SD/MMC Card driver using a raw SPI interface.
-    ///
-    /// Uses the default options.
+    /// Create a new SD/MMC interface using a raw SPI interface.
     pub fn new(spi: SPI, cs: CS) -> SdCard<SPI, CS> {
-        Self::new_with_options(spi, cs, AcquireOpts::default())
+        SdCard {
+            inner: RefCell::new(SdCardInner {
+                spi,
+                cs,
+                card_type: CardType::Unknown,
+                options: AcquireOpts { require_crc: true },
+            }),
+        }
     }
 
-    /// Construct a new SD/MMC Card driver, using a raw SPI interface and the given options.
+    /// Construct a new SD/MMC interface, using the given options.
     pub fn new_with_options(spi: SPI, cs: CS, options: AcquireOpts) -> SdCard<SPI, CS> {
         SdCard {
             inner: RefCell::new(SdCardInner {
@@ -100,14 +105,6 @@ where
         inner.check_init()?;
         inner.erase_single_block_enabled()
     }
-
-    /// Mark the card as requiring a reset.
-    ///
-    /// The next operation will assume the card has been freshly inserted.
-    pub fn mark_card_uninit(&self) {
-        let mut inner = self.inner.borrow_mut();
-        inner.card_type = CardType::Unknown;
-    }
 }
 
 impl<SPI, CS> BlockDevice for SdCard<SPI, CS>
@@ -123,23 +120,16 @@ where
         &self,
         blocks: &mut [Block],
         start_block_idx: BlockIdx,
-        reason: &str,
+        _reason: &str,
     ) -> Result<(), Self::Error> {
         let mut inner = self.inner.borrow_mut();
-        debug!(
-            "Read {} blocks @ {} for {}",
-            blocks.len(),
-            start_block_idx.0,
-            reason
-        );
         inner.check_init()?;
-        inner.read(blocks, start_block_idx)
+        inner.read(blocks, start_block_idx, _reason)
     }
 
     /// Write one or more blocks, starting at the given block index.
     fn write(&self, blocks: &[Block], start_block_idx: BlockIdx) -> Result<(), Self::Error> {
         let mut inner = self.inner.borrow_mut();
-        debug!("Writing {} blocks @ {}", blocks.len(), start_block_idx.0);
         inner.check_init()?;
         inner.write(blocks, start_block_idx)
     }
@@ -148,7 +138,7 @@ where
     fn num_blocks(&self) -> Result<BlockCount, Self::Error> {
         let mut inner = self.inner.borrow_mut();
         inner.check_init()?;
-        inner.card_size_blocks()
+        inner.num_blocks()
     }
 }
 
@@ -174,7 +164,12 @@ where
     <SPI as embedded_hal::blocking::spi::Transfer<u8>>::Error: core::fmt::Debug,
 {
     /// Read one or more blocks, starting at the given block index.
-    fn read(&mut self, blocks: &mut [Block], start_block_idx: BlockIdx) -> Result<(), Error> {
+    fn read(
+        &mut self,
+        blocks: &mut [Block],
+        start_block_idx: BlockIdx,
+        _reason: &str,
+    ) -> Result<(), Error> {
         let start_idx = match self.card_type {
             CardType::SD1 | CardType::SD2 => start_block_idx.0 * 512,
             CardType::Sdhc => start_block_idx.0,
@@ -233,15 +228,9 @@ where
     }
 
     /// Determine how many blocks this device can hold.
-    fn card_size_blocks(&mut self) -> Result<BlockCount, Error> {
-        let num_blocks = self.with_chip_select(|s| {
-            let csd = s.read_csd()?;
-            debug!("CSD: {:?}", csd);
-            match csd {
-                Csd::V1(ref contents) => Ok(contents.card_capacity_blocks()),
-                Csd::V2(ref contents) => Ok(contents.card_capacity_blocks()),
-            }
-        })?;
+    fn num_blocks(&mut self) -> Result<BlockCount, Error> {
+        let num_bytes = self.card_size_bytes()?;
+        let num_blocks = (num_bytes / 512) as u32;
         Ok(BlockCount(num_blocks))
     }
 
@@ -249,7 +238,6 @@ where
     fn card_size_bytes(&mut self) -> Result<u64, Error> {
         self.with_chip_select(|s| {
             let csd = s.read_csd()?;
-            debug!("CSD: {:?}", csd);
             match csd {
                 Csd::V1(ref contents) => Ok(contents.card_capacity_bytes()),
                 Csd::V2(ref contents) => Ok(contents.card_capacity_bytes()),
