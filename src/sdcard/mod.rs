@@ -448,6 +448,7 @@ where
                 }
                 delay.delay(Error::TimeoutCommand(CMD8))?;
             };
+            debug!("Card version: {:?}", card_type);
 
             let mut delay = Delay::new();
             while s.card_acmd(ACMD41, arg)? != R1_READY_STATE {
@@ -466,7 +467,6 @@ where
                 s.receive()?;
                 s.receive()?;
             }
-            debug!("Card version: {:?}", card_type);
             s.card_type = Some(card_type);
             Ok(())
         };
