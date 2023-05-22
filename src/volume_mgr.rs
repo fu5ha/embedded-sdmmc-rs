@@ -237,6 +237,7 @@ where
                 break;
             }
         }
+        drop(dir);
     }
 
     /// Look in a directory for a named file.
@@ -602,6 +603,7 @@ where
                 break;
             }
         }
+        drop(file);
         Ok(())
     }
 

@@ -81,7 +81,12 @@ impl ShortFileName {
                     }
                 }
                 _ => {
-                    let ch = ch.to_ascii_uppercase();
+                    let ch = if (b'a'..=b'z').contains(&ch) {
+                        // Uppercase characters only
+                        ch - 32
+                    } else {
+                        ch
+                    };
                     if seen_dot {
                         if (Self::FILENAME_BASE_MAX_LEN..Self::FILENAME_MAX_LEN).contains(&idx) {
                             sfn.contents[idx] = ch;

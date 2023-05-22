@@ -22,7 +22,7 @@ const DEFAULT_DELAY_COUNT: u32 = 32_000;
 /// Built from an SPI peripheral and a Chip
 /// Select pin. We need Chip Select to be separate so we can clock out some
 /// bytes without Chip Select asserted (which puts the card into SPI mode).
-pub struct SdCard<SPI, CS>
+pub struct SdMmcSpi<SPI, CS>
 where
     SPI: embedded_hal::blocking::spi::Transfer<u8>,
     CS: embedded_hal::digital::v2::OutputPin,
@@ -35,16 +35,15 @@ where
 }
 
 /// An initialized block device used to access the SD card.
-///
-/// **Caution**: any data must be flushed manually before dropping `AcquiredSdCard`, see `deinit`.
+/// **Caution**: any data must be flushed manually before dropping `BlockSpi`, see `deinit`.
 /// Uses SPI mode.
-pub struct AcquiredSdCard<'a, SPI, CS>(&'a mut SdCard<SPI, CS>)
+pub struct BlockSpi<'a, SPI, CS>(&'a mut SdMmcSpi<SPI, CS>)
 where
     SPI: embedded_hal::blocking::spi::Transfer<u8>,
     CS: embedded_hal::digital::v2::OutputPin,
     <SPI as embedded_hal::blocking::spi::Transfer<u8>>::Error: core::fmt::Debug;
 
-/// The possible errors this crate can generate.
+/// The possible errors `SdMmcSpi` can generate.
 #[cfg_attr(feature = "defmt-log", derive(defmt::Format))]
 #[derive(Debug, Copy, Clone)]
 pub enum Error {
@@ -78,7 +77,7 @@ pub enum Error {
     GpioError,
 }
 
-/// The possible states `SdCard` can be in.
+/// The possible states `SdMmcSpi` can be in.
 #[cfg_attr(feature = "defmt-log", derive(defmt::Format))]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum State {
@@ -93,7 +92,6 @@ pub enum State {
 /// The different types of card we support.
 #[cfg_attr(feature = "defmt-log", derive(defmt::Format))]
 #[derive(Debug, Copy, Clone, PartialEq)]
-#[allow(clippy::upper_case_acronyms)]
 enum CardType {
     SD1,
     SD2,
@@ -139,15 +137,15 @@ impl Default for AcquireOpts {
     }
 }
 
-impl<SPI, CS> SdCard<SPI, CS>
+impl<SPI, CS> SdMmcSpi<SPI, CS>
 where
     SPI: embedded_hal::blocking::spi::Transfer<u8>,
     CS: embedded_hal::digital::v2::OutputPin,
     <SPI as embedded_hal::blocking::spi::Transfer<u8>>::Error: core::fmt::Debug,
 {
     /// Create a new SD/MMC interface using a raw SPI interface.
-    pub fn new(spi: SPI, cs: CS) -> SdCard<SPI, CS> {
-        SdCard {
+    pub fn new(spi: SPI, cs: CS) -> SdMmcSpi<SPI, CS> {
+        SdMmcSpi {
             spi: RefCell::new(spi),
             cs: RefCell::new(cs),
             card_type: CardType::SD1,
@@ -167,15 +165,12 @@ where
     }
 
     /// Initializes the card into a known state
-    pub fn acquire(&mut self) -> Result<AcquiredSdCard<SPI, CS>, Error> {
+    pub fn acquire(&mut self) -> Result<BlockSpi<SPI, CS>, Error> {
         self.acquire_with_opts(Default::default())
     }
 
     /// Initializes the card into a known state
-    pub fn acquire_with_opts(
-        &mut self,
-        options: AcquireOpts,
-    ) -> Result<AcquiredSdCard<SPI, CS>, Error> {
+    pub fn acquire_with_opts(&mut self, options: AcquireOpts) -> Result<BlockSpi<SPI, CS>, Error> {
         debug!("acquiring card with opts: {:?}", options);
         let f = |s: &mut Self| {
             // Assume it hasn't worked
@@ -274,7 +269,7 @@ where
         let result = f(self);
         self.cs_high()?;
         let _ = self.receive();
-        result.map(move |()| AcquiredSdCard(self))
+        result.map(move |()| BlockSpi(self))
     }
 
     /// Perform a function that might error with the chipselect low.
@@ -382,7 +377,7 @@ where
     }
 }
 
-impl<SPI, CS> AcquiredSdCard<'_, SPI, CS>
+impl<SPI, CS> BlockSpi<'_, SPI, CS>
 where
     SPI: embedded_hal::blocking::spi::Transfer<u8>,
     CS: embedded_hal::digital::v2::OutputPin,
@@ -522,7 +517,7 @@ impl<U: BlockDevice, T: Deref<Target = U>> BlockDevice for T {
     }
 }
 
-impl<SPI, CS> BlockDevice for AcquiredSdCard<'_, SPI, CS>
+impl<SPI, CS> BlockDevice for BlockSpi<'_, SPI, CS>
 where
     SPI: embedded_hal::blocking::spi::Transfer<u8>,
     <SPI as embedded_hal::blocking::spi::Transfer<u8>>::Error: core::fmt::Debug,
@@ -600,7 +595,7 @@ where
     }
 }
 
-impl<SPI, CS> Drop for AcquiredSdCard<'_, SPI, CS>
+impl<SPI, CS> Drop for BlockSpi<'_, SPI, CS>
 where
     SPI: embedded_hal::blocking::spi::Transfer<u8>,
     <SPI as embedded_hal::blocking::spi::Transfer<u8>>::Error: core::fmt::Debug,
