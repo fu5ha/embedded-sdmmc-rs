@@ -1,4 +1,4 @@
-//! Constants from the SD Specifications
+//! embedded-sdmmc-rs - Constants from the SD Specifications
 //!
 //! Based on SdFat, under the following terms:
 //!

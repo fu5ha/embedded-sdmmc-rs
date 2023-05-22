@@ -1,5 +1,3 @@
-//! The Volume Manager handles partitions and open files on a block device.
-
 use byteorder::{ByteOrder, LittleEndian};
 use core::convert::TryFrom;
 
