@@ -1,25 +1,25 @@
 [package]
-authors = ["Jonathan 'theJPster' Pallant <github@thejpster.org.uk>"]
-categories = ["embedded", "no-std"]
-description = "A basic SD/MMC driver for Embedded Rust."
-edition = "2021"
-keywords = ["sdcard", "mmc", "embedded", "fat32"]
-license = "MIT OR Apache-2.0"
 name = "embedded-sdmmc"
-readme = "README.md"
-repository = "https://github.com/rust-embedded-community/embedded-sdmmc-rs"
 version = "0.4.0"
+authors = ["Jonathan 'theJPster' Pallant <github@thejpster.org.uk>"]
+description = "A basic SD/MMC driver for Embedded Rust."
+keywords = ["sdcard", "mmc", "embedded", "fat32"]
+categories = ["embedded", "no-std"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/rust-embedded-community/embedded-sdmmc-rs"
+edition = "2021"
+readme = "README.md"
 
 [dependencies]
-byteorder = {version = "1", default-features = false}
-defmt = {version = "0.3", optional = true}
 embedded-hal = "0.2.3"
-log = {version = "0.4", default-features = false, optional = true}
+byteorder = { version = "1", default-features = false }
+log = { version = "0.4", default-features = false, optional = true }
+defmt = { version = "0.3", optional = true }
 
 [dev-dependencies]
-env_logger = "0.9"
 hex-literal = "0.3"
+env_logger = "0.9"
 
 [features]
-default = ["log"]
-defmt-log = ["defmt"]
+defmt-log = [ "defmt" ]
+default = [ "log" ]
