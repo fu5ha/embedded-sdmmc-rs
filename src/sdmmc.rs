@@ -295,9 +295,6 @@ where
             return Err(Error::ReadError);
         }
 
-        for b in buffer.iter_mut() {
-            *b = 0xFF;
-        }
         self.spi.transfer(buffer).map_err(|_e| Error::Transport)?;
 
         let mut crc = u16::from(self.receive()?);
