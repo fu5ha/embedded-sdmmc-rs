@@ -23,29 +23,28 @@ use crate::{debug, warn};
 
 /// Represents an SD Card on an SPI bus.
 ///
-/// Built from an SPI peripheral and a Chip Select pin. We need Chip Select to
+/// Built from a [`SpiDevice`] which represents ownership of the SD Card
+/// device on a possibly-shared bus, including exclusive ownerhsip of its
+/// Chip Select pin. We need Chip Select to
 /// be separate so we can clock out some bytes without Chip Select asserted
 /// (which "flushes the SD cards registers" according to the spec).
 ///
 /// All the APIs take `&self` - mutability is handled using an inner `RefCell`.
-pub struct SdCard<SPI, CS, DELAYER>
+/// [`SpiDevice`]: embedded_hal::spi::SpiDevice
+pub struct SdCard<SPI, DELAYER>
 where
-    SPI: embedded_hal::blocking::spi::Transfer<u8> + embedded_hal::blocking::spi::Write<u8>,
-    CS: embedded_hal::digital::v2::OutputPin,
-    <SPI as embedded_hal::blocking::spi::Transfer<u8>>::Error: core::fmt::Debug,
-    <SPI as embedded_hal::blocking::spi::Write<u8>>::Error: core::fmt::Debug,
-    DELAYER: embedded_hal::blocking::delay::DelayUs<u8>,
+    SPI: embedded_hal::spi::SpiDevice<u8>,
+    <SPI as embedded_hal::spi::ErrorType>::Error: core::fmt::Debug,
+    DELAYER: embedded_hal::delay::DelayUs,
 {
     inner: RefCell<SdCardInner<SPI, CS, DELAYER>>,
 }
 
 impl<SPI, CS, DELAYER> SdCard<SPI, CS, DELAYER>
 where
-    SPI: embedded_hal::blocking::spi::Transfer<u8> + embedded_hal::blocking::spi::Write<u8>,
-    CS: embedded_hal::digital::v2::OutputPin,
-    <SPI as embedded_hal::blocking::spi::Transfer<u8>>::Error: core::fmt::Debug,
-    <SPI as embedded_hal::blocking::spi::Write<u8>>::Error: core::fmt::Debug,
-    DELAYER: embedded_hal::blocking::delay::DelayUs<u8>,
+    SPI: embedded_hal::spi::SpiDevice<u8>,
+    <SPI as embedded_hal::spi::ErrorType>::Error: core::fmt::Debug,
+    DELAYER: embedded_hal::delay::DelayUs,
 {
     /// Create a new SD/MMC Card driver using a raw SPI interface.
     ///
