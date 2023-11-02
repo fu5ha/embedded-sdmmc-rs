@@ -109,8 +109,7 @@
 // ****************************************************************************
 
 #[cfg(test)]
-#[macro_use]
-extern crate hex_literal;
+use hex_literal::hex;
 
 #[macro_use]
 mod structure;
