@@ -606,32 +606,37 @@ where
     }
 
     /// Receive a byte from the SPI bus by clocking out an 0xFF byte.
+    #[inline]
     fn read_byte(&mut self) -> Result<u8, Error> {
         self.transfer_byte(0xFF)
     }
 
     /// Send a byte over the SPI bus and ignore what comes back.
+    #[inline]
     fn write_byte(&mut self, out: u8) -> Result<(), Error> {
-        let _ = self.transfer_byte(out)?;
+        let _ = self.write_bytes(&[out])?;
         Ok(())
     }
 
     /// Send one byte and receive one byte over the SPI bus.
+    #[inline]
     fn transfer_byte(&mut self, out: u8) -> Result<u8, Error> {
-        let mut read_buf = [0u8; 1];
+        let mut buf = [out];
         self.spi
-            .transfer(&mut read_buf, &[out])
+            .transfer_in_place(&mut buf)
             .map_err(|_| Error::Transport)?;
-        Ok(read_buf[0])
+        Ok(buf[0])
     }
 
     /// Send multiple bytes and ignore what comes back over the SPI bus.
+    #[inline]
     fn write_bytes(&mut self, out: &[u8]) -> Result<(), Error> {
         self.spi.write(out).map_err(|_e| Error::Transport)?;
         Ok(())
     }
 
     /// Send multiple bytes and replace them with what comes back over the SPI bus.
+    #[inline]
     fn transfer_bytes(&mut self, in_out: &mut [u8]) -> Result<(), Error> {
         self.spi
             .transfer_in_place(in_out)
@@ -736,6 +741,7 @@ pub enum CardType {
 ///
 /// Will let you call `delay` up to `max_retries` times before `delay` returns
 /// an error.
+#[derive(Clone, Copy)]
 struct Delay {
     retries_left: u32,
 }
@@ -789,6 +795,7 @@ impl Delay {
     /// Checks the retry counter first, and if we hit the max retry limit, the
     /// value `err` is returned. Otherwise we wait for 10us and then return
     /// `Ok(())`.
+    #[inline]
     fn delay<T>(&mut self, delayer: &mut T, err: Error) -> Result<(), Error>
     where
         T: embedded_hal::delay::DelayUs,
